@@ -12,7 +12,7 @@
 static const uint32_t adxl345_i2c_id = 0;
 static const uint8_t adxl345_i2c_addr = 0x53;
 
-static uint8_t ICACHE_FLASH_ATTR r8u(uint32_t id, uint8_t reg) {
+static uint8_t r8u(uint32_t id, uint8_t reg) {
     uint8_t ret;
 
     platform_i2c_send_start(id);
@@ -26,19 +26,9 @@ static uint8_t ICACHE_FLASH_ATTR r8u(uint32_t id, uint8_t reg) {
     return ret;
 }
 
-static int ICACHE_FLASH_ATTR adxl345_init(lua_State* L) {
-
-    uint32_t sda;
-    uint32_t scl;
+static int adxl345_setup(lua_State* L) {
     uint8_t  devid;
 
-    sda = luaL_checkinteger(L, 1);
-    scl = luaL_checkinteger(L, 2);
-
-    luaL_argcheck(L, sda > 0 && scl > 0, 1, "no i2c for D0");
-
-    platform_i2c_setup(adxl345_i2c_id, sda, scl, PLATFORM_I2C_SPEED_SLOW);
-    
     devid = r8u(adxl345_i2c_id, 0x00);
 
     if (devid != 229) {
@@ -55,7 +45,7 @@ static int ICACHE_FLASH_ATTR adxl345_init(lua_State* L) {
     return 0;
 }
 
-static int ICACHE_FLASH_ATTR adxl345_read(lua_State* L) {
+static int adxl345_read(lua_State* L) {
 
     uint8_t data[6];
     int x,y,z;
@@ -88,7 +78,7 @@ static int ICACHE_FLASH_ATTR adxl345_read(lua_State* L) {
 
 static const LUA_REG_TYPE adxl345_map[] = {
     { LSTRKEY( "read" ),         LFUNCVAL( adxl345_read )},
-    { LSTRKEY( "init" ),         LFUNCVAL( adxl345_init )},
+    { LSTRKEY( "setup" ),        LFUNCVAL( adxl345_setup )},
     { LNILKEY, LNILVAL}
 };
 

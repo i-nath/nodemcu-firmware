@@ -6,14 +6,44 @@
 !!! important
 	The WiFi subsystem is maintained by background tasks that must run periodically. Any function or task that takes longer than 15ms (milliseconds) may cause the WiFi subsystem to crash. To avoid these potential crashes, it is advised that the WiFi subsystem be suspended with [wifi.suspend()](#wifisuspend) prior to the execution of any tasks or functions that exceed this 15ms guideline.
 
+### WiFi modes
+Courtesy: content for this chapter is borrowed/inspired by the [Arduino ESP8266 WiFi documentation](https://arduino-esp8266.readthedocs.io/en/latest/esp8266wifi/readme.html).
+
+Devices that connect to WiFi network are called stations (STA). Connection to Wi-Fi is provided by an access point (AP), that acts as a hub for one or more stations. The access point on the other end is connected to a wired network. An access point is usually integrated with a router to provide access from Wi-Fi network to the internet. Each access point is recognized by a SSID (**S**ervice **S**et **ID**entifier), that essentially is the name of network you select when connecting a device (station) to the WiFi.
+
+Each ESP8266 module can operate as a station, so we can connect it to the WiFi network. It can also operate as a soft access point (soft-AP), to establish its own WiFi network. Therefore, we can connect other stations to such modules. Third, ESP8266 is also able to operate both in station and soft access point mode *at the same time*. This offers the possibility of building e.g. [mesh networks](https://en.wikipedia.org/wiki/Mesh_networking).
+
+#### Station
+Station (STA) mode is used to get the ESP8266 connected to a WiFi network established by an access point.
+
+![ESP8266 operating in station mode](../../img/WiFi-station-mode.png)
+
+#### Soft Access Point
+An access point (AP) is a device that provides access to Wi-Fi network to other devices (stations) and connects them further to a wired network. ESP8266 can provide similar functionality except it does not have interface to a wired network. Such mode of operation is called soft access point (soft-AP). The maximum number of stations connected to the soft-AP is five.
+
+![ESP8266 operating in Soft Access Point mode](../../img/WiFi-softap-mode.png)
+
+The soft-AP mode is often used and an intermediate step before connecting ESP to a WiFi in a station mode. This is when SSID and password to such network is not known upfront. The module first boots in soft-AP mode, so we can connect to it using a laptop or a mobile phone. Then we are able to provide credentials to the target network. Once done ESP is switched to the station mode and can connect to the target WiFi.
+
+Such functionality is provided by the [NodeMCU enduser setup module](../modules/enduser-setup.md).
+
+#### Station + Soft Access Point
+Another handy application of soft-AP mode is to set up [mesh networks](https://en.wikipedia.org/wiki/Mesh_networking). ESP can operate in both soft-AP and Station mode so it can act as a node of a mesh network.
+
+![ESP8266 operating in station AP mode](../../img/WiFi-stationap-mode.png)
+
+
+### Function reference
 
 The NodeMCU WiFi control is spread across several tables:
 
-- `wifi` for overall WiFi configuration
+- [`wifi`](#wifigetchannel) for overall WiFi configuration
 - [`wifi.sta`](#wifista-module) for station mode functions
 - [`wifi.ap`](#wifiap-module) for wireless access point (WAP or simply AP) functions
 - [`wifi.ap.dhcp`](#wifiapdhcp-module) for DHCP server control
 - [`wifi.eventmon`](#wifieventmon-module) for wifi event monitor
+- [`wifi.monitor`](wifi_monitor.md#wifimonitor-module) for wifi monitor mode
+
 
 ## wifi.getchannel()
 
@@ -27,6 +57,36 @@ Gets the current WiFi channel.
 
 #### Returns
 current WiFi channel
+
+## wifi.getcountry()
+
+Get the current country info.
+
+#### Syntax
+`wifi.getcountry()`
+
+#### Parameters
+`nil`
+
+#### Returns
+- `country_info` this table contains the current country info configuration
+	- `country` Country code, 2 character string.
+	- `start_ch` Starting channel. 
+	- `end_ch` Ending channel.
+	- `policy` The policy parameter determines which country info configuration to use, country info given to station by AP or local configuration.
+		- `0` Country policy is auto, NodeMCU will use the country info provided by AP that the station is connected to.
+		- `1` Country policy is manual, NodeMCU will use locally configured country info.
+	
+#### Example
+
+```lua
+for k, v in pairs(wifi.getcountry()) do
+  print(k, v)
+end
+```
+
+#### See also
+[`wifi.setcountry()`](#wifisetcountry)
 
 ## wifi.getdefaultmode()
 
@@ -102,6 +162,9 @@ Configures whether or not WiFi automatically goes to sleep in NULL_MODE. Enabled
 
 Wake up WiFi from suspended state or cancel pending wifi suspension.
 
+!!! attention
+    This is disabled by default. Modify `PMSLEEP_ENABLE` in `app/include/user_config.h` to enable it.
+
 !!! note
 	Wifi resume occurs asynchronously, this means that the resume request will only be processed when control of the processor is passed back to the SDK (after MyResumeFunction() has completed). The resume callback also executes asynchronously and will only execute after wifi has resumed normal operation. 
 
@@ -131,6 +194,48 @@ wifi.resume(function() print("WiFi resume") end)
 - [`wifi.suspend()`](#wifisuspend)
 - [`node.sleep()`](node.md#nodesleep)
 - [`node.dsleep()`](node.md#nodedsleep)
+
+## wifi.setcountry()
+
+Set the current country info.
+
+#### Syntax
+`wifi.setcountry(country_info)`
+
+#### Parameters
+- `country_info` This table contains the country info configuration. (If a blank table is passed to this function, default values will be configured.)
+	- `country` Country code, 2 character string containing the country code (a list of country codes can be found [here](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements)). (Default:"CN")
+	- `start_ch` Starting channel (range:1-14). (Default:1)
+	- `end_ch` Ending channel, must not be less than starting channel (range:1-14). (Default:13)
+	- `policy` The policy parameter determines which country info configuration to use, country info given to station by AP or local configuration. (default:`wifi.COUNTRY_AUTO`)
+		- `wifi.COUNTRY_AUTO` Country policy is auto, NodeMCU will use the country info provided by AP that the station is connected to.
+			- while in stationAP mode, beacon/probe respose will reflect the country info of the AP that the station is connected to.  
+		- `wifi.COUNTRY_MANUAL` Country policy is manual, NodeMCU will use locally configured country info.
+
+#### Returns
+`true` If configuration was sucessful.
+	
+#### Example
+
+```lua
+do
+  country_info={}
+  country_info.country="US"
+  country_info.start_ch=1
+  country_info.end_ch=13
+  country_info.policy=wifi.COUNTRY_AUTO;
+  wifi.setcountry(country_info)
+end  
+
+--compact version
+  wifi.setcountry({country="US", start_ch=1, end_ch=13, policy=wifi.COUNTRY_AUTO})
+
+--Set defaults
+  wifi.setcountry({})
+```
+
+#### See also
+[`wifi.getcountry()`](#wifigetcountry)
 
 ## wifi.setmode()
 
@@ -208,6 +313,25 @@ physical mode after setup
 #### See also
 [`wifi.getphymode()`](#wifigetphymode)
 
+## wifi.setmaxtxpower()
+
+Sets WiFi maximum TX power. This setting is not persisted across power cycles, and the Espressif SDK documentation does not specify if the setting persists after deep sleep. The default value used is read from byte 34 of the ESP8266 init data, and its value is hence defined by the manufacturer.
+
+The default value, 82, corresponds to maximum TX power. Lowering this setting could reduce power consumption on battery backed devices.
+
+#### Syntax
+`wifi.setmaxtxpower(max_tpw)`
+
+#### Parameters
+`max_tpw` maximum value of RF Tx Power, unit: 0.25 dBm, range [0, 82]. 
+
+#### Returns
+`nil`
+
+### See also
+[`flash SDK init data`](../flash.md#sdk-init-data)
+
+
 ## wifi.startsmart()
 
 Starts to auto configuration, if success set up SSID and password automatically.
@@ -262,6 +386,9 @@ none
 
 ## wifi.suspend()
 Suspend Wifi to reduce current consumption. 
+
+!!! attention
+    This is disabled by default. Modify `PMSLEEP_ENABLE` in `app/include/user_config.h` to enable it.
 
 !!! note
 	Wifi suspension occurs asynchronously, this means that the suspend request will only be processed when control of the processor is passed back to the SDK (after MySuspendFunction() has completed). The suspend callback also executes asynchronously and will only execute after wifi has been successfully been suspended. 
@@ -389,6 +516,9 @@ none
 
 Sets the WiFi station configuration.
 
+!!! note
+	It is not advised to assume that the WiFi is connected at any time during initialization start-up. WiFi connection status should be validated either by using a WiFi event callback or by polling the status on a timer.
+
 #### Syntax
 `wifi.sta.config(station_config)`
 
@@ -407,8 +537,31 @@ Sets the WiFi station configuration.
 			- "AC-1D-1C-B1-0B-22"
 			- "DE AD BE EF 7A C0"
 	- `save` Save station configuration to flash. 
-		- `true` configuration **will** be retained through power cycle. 
-		- `false` configuration **will not** be retained through power cycle. (Default)
+		- `true` configuration **will** be retained through power cycle.  (Default).
+		- `false` configuration **will not** be retained through power cycle.
+	- Event callbacks will only be available if `WIFI_SDK_EVENT_MONITOR_ENABLE` is uncommented in `user_config.h`
+		- Please note: To ensure all station events are handled at boot time, all relevant callbacks must be registered as early as possible in `init.lua` with either `wifi.sta.config()` or `wifi.eventmon.register()`.     
+		- `connected_cb`: Callback to execute when station is connected to an access point. (Optional)
+			- Items returned in table :
+				- `SSID`: SSID of access point.  (format: string)
+				- `BSSID`: BSSID of access point.  (format: string)
+				- `channel`: The channel the access point is on.  (format: number)
+		- `disconnected_cb`: Callback to execute when station is disconnected from an access point. (Optional)
+			- Items returned in table :
+				- `SSID`: SSID of access point.   (format: string)
+				- `BSSID`: BSSID of access point. (format: string) 
+				- `reason`: See [wifi.eventmon.reason](#wifieventmonreason) below. (format: number)  
+		- `authmode_change_cb`: Callback to execute when the access point has changed authorization mode. (Optional)    
+			- Items returned in table :
+			- `old_auth_mode`: Old wifi authorization mode. (format: number)  
+			- `new_auth_mode`: New wifi authorization mode. (format: number)
+		- `got_ip_cb`: Callback to execute when the station received an IP address from the access point. (Optional)
+			- Items returned in table :
+				- `IP`: The IP address assigned to the station.  (format: string)
+				- `netmask`: Subnet mask.  (format: string)
+				- `gateway`: The IP address of the access point the station is connected to. (format: string)  
+		- `dhcp_timeout_cb`: Station DHCP request has timed out. (Optional)
+			- Blank table is returned.  
 
 #### Returns
 - `true`  Success
@@ -421,6 +574,7 @@ Sets the WiFi station configuration.
 station_cfg={}
 station_cfg.ssid="NODE-AABBCC"
 station_cfg.pwd="password"
+station_cfg.save=false
 wifi.sta.config(station_cfg)
 
 --connect to Access Point (DO save config to flash)
@@ -430,14 +584,14 @@ station_cfg.pwd="password"
 station_cfg.save=true
 wifi.sta.config(station_cfg)
 
---connect to Access Point with specific MAC address  
+--connect to Access Point with specific MAC address (DO save config to flash)
 station_cfg={}
 station_cfg.ssid="NODE-AABBCC"
 station_cfg.pwd="password"
 station_cfg.bssid="AA:BB:CC:DD:EE:FF"
 wifi.sta.config(station_cfg)
 
---configure station but don't connect to Access point
+--configure station but don't connect to Access point (DO save config to flash)
 station_cfg={}
 station_cfg.ssid="NODE-AABBCC"
 station_cfg.pwd="password"
@@ -457,10 +611,14 @@ wifi.sta.config(station_cfg)
 Connects to the configured AP in station mode. You only ever need to call this if auto-connect was disabled in [`wifi.sta.config()`](#wifistaconfig).
 
 #### Syntax
-`wifi.sta.connect()`
+`wifi.sta.connect([connected_cb])`
 
 #### Parameters
-none
+- `connected_cb`: Callback to execute when station is connected to an access point. (Optional)
+	- Items returned in table :
+		- `SSID`: SSID of access point.  (format: string)
+		- `BSSID`: BSSID of access point.  (format: string)
+		- `channel`: The channel the access point is on.  (format: number)
 
 #### Returns
 `nil`
@@ -477,10 +635,14 @@ Disconnects from AP in station mode.
 	Please note that disconnecting from Access Point does not reduce power consumption. If power saving is your goal, please refer to the description for `wifi.NULLMODE` in the function [`wifi.setmode()`](#wifisetmode) for more details.
 
 #### Syntax
-`wifi.sta.disconnect()`
+`wifi.sta.disconnect([disconnected_cb])`
 
 #### Parameters
-none
+- `disconnected_cb`: Callback to execute when station is disconnected from an access point. (Optional)
+	- Items returned in table :
+		- `SSID`: SSID of access point.   (format: string)
+		- `BSSID`: BSSID of access point. (format: string) 
+		- `reason`: See [wifi.eventmon.reason](#wifieventmonreason) below. (format: number)  
 
 #### Returns
 `nil`
@@ -488,116 +650,6 @@ none
 #### See also
 - [`wifi.sta.config()`](#wifistaconfig)
 - [`wifi.sta.connect()`](#wifistaconnect)
-
-## wifi.sta.eventMonReg()
-
-Registers callbacks for WiFi station status events.
-
-!!! note
-    Please update your program to use the [`wifi.eventmon`](#wifieventmon-module) API, as the `wifi.sta.eventmon___()` API is deprecated. 
-
-####  Syntax
-- `wifi.sta.eventMonReg(wifi_status[, function([previous_state])])`
-
-####  Parameters
-- `wifi_status` WiFi status you would like to set a callback for:
-    - `wifi.STA_IDLE`
-    - `wifi.STA_CONNECTING`
-    - `wifi.STA_WRONGPWD`
-    - `wifi.STA_APNOTFOUND`
-    - `wifi.STA_FAIL`
-    - `wifi.STA_GOTIP`
-- `function` callback function to perform when event occurs
-	- Note: leaving field blank unregisters callback.
-- `previous_state` previous wifi_state(0 - 5)
-
-####  Returns
-`nil`
-
-####  Example
-```lua
---register callback
-wifi.sta.eventMonReg(wifi.STA_IDLE, function() print("STATION_IDLE") end)
-wifi.sta.eventMonReg(wifi.STA_CONNECTING, function() print("STATION_CONNECTING") end)
-wifi.sta.eventMonReg(wifi.STA_WRONGPWD, function() print("STATION_WRONG_PASSWORD") end)
-wifi.sta.eventMonReg(wifi.STA_APNOTFOUND, function() print("STATION_NO_AP_FOUND") end)
-wifi.sta.eventMonReg(wifi.STA_FAIL, function() print("STATION_CONNECT_FAIL") end)
-wifi.sta.eventMonReg(wifi.STA_GOTIP, function() print("STATION_GOT_IP") end)
-
---register callback: use previous state
-wifi.sta.eventMonReg(wifi.STA_CONNECTING, function(previous_State)
-	if(previous_State==wifi.STA_GOTIP) then
-		print("Station lost connection with access point\n\tAttempting to reconnect...")
-	else
-		print("STATION_CONNECTING")
-	end
-end)
-
---unregister callback
-wifi.sta.eventMonReg(wifi.STA_IDLE)
-```
-#### See also
-- [`wifi.sta.eventMonStart()`](#wifistaeventmonstart)
-- [`wifi.sta.eventMonStop()`](#wifistaeventmonstop)
-- [`wifi.eventmon.register()`](#wifieventmonregister)
-- [`wifi.eventmon.unregister()`](#wifieventmonunregister)
-
-
-## wifi.sta.eventMonStart()
-
-Starts WiFi station event monitor.
-
-####  Syntax
-`wifi.sta.eventMonStart([ms])`
-
-### Parameters
-- `ms` interval between checks in milliseconds, defaults to 150ms if not provided.
-
-####  Returns
-`nil`
-
-####  Example
-```lua
---start WiFi event monitor with default interval
-wifi.sta.eventMonStart()
-
---start WiFi event monitor with 100ms interval
-wifi.sta.eventMonStart(100)
-```
-
-#### See also
-- [`wifi.sta.eventMonReg()`](#wifistaeventmonreg)
-- [`wifi.sta.eventMonStop()`](#wifistaeventmonstop)
-- [`wifi.eventmon.register()`](#wifieventmonregister)
-- [`wifi.eventmon.unregister()`](#wifieventmonunregister)
-
-## wifi.sta.eventMonStop()
-
-Stops WiFi station event monitor.
-####  Syntax
-`wifi.sta.eventMonStop([unregister_all])`
-
-####  Parameters
-- `unregister_all` enter 1 to unregister all previously registered functions.
-	- Note: leave blank to leave callbacks registered
-
-####  Returns
-`nil`
-
-####  Example
-```lua
---stop WiFi event monitor
-wifi.sta.eventMonStop()
-
---stop WiFi event monitor and unregister all callbacks
-wifi.sta.eventMonStop(1)
-```
-
-#### See also
-- [`wifi.sta.eventMonReg()`](#wifistaeventmonreg)
-- [`wifi.sta.eventMonStart()`](#wifistaeventmonstart)
-- [`wifi.eventmon.register()`](#wifieventmonregister)
-- [`wifi.eventmon.unregister()`](#wifieventmonunregister)
 
 ## wifi.sta.getap()
 
@@ -738,7 +790,8 @@ Get information of APs cached by ESP8266 station.
 	- `1-5` index of AP. (the index corresponds to index used by [`wifi.sta.changeap()`](#wifistachangeap) and [`wifi.sta.getapindex()`](#wifistagetapindex))
 	- `ssid`  ssid of Access Point
 	- `pwd` password for Access Point, `nil` if no password was configured 
-	- `bssid` MAC address of Access Point, `nil` if no MAC address was configured
+	- `bssid` MAC address of Access Point
+	  - `nil` will be returned if no MAC address was configured during station configuration.
 
 #### Example
 ```lua
@@ -809,7 +862,9 @@ If `return_table` is `true`:
 - `config_table`
 	- `ssid` ssid of Access Point.
 	- `pwd` password to Access Point, `nil` if no password was configured 
-	- `bssid` MAC address of Access Point, `nil` if no MAC address was configured 
+	- `bssid_set` will return `true` if the station was configured specifically to connect to the AP with the matching `bssid`. 
+	- `bssid` If a connection has been made to the configured AP this field will contain the AP's MAC address. Otherwise "ff:ff:ff:ff:ff:ff" will be returned.
+ 
 
 If `return_table` is `false`:
 
@@ -820,8 +875,8 @@ If `return_table` is `false`:
 ```lua
 --Get current Station configuration (NEW FORMAT)
 do
-local def_sta_config=wifi.sta.getconfig(true)
-print(string.format("\tDefault station config\n\tssid:\"%s\"\tpassword:\"%s\"%s", def_sta_config.ssid, def_sta_config.pwd, (type(def_sta_config.bssid)=="string" and "\tbssid:\""..def_sta_config.bssid.."\"" or "")))
+local sta_config=wifi.sta.getconfig(true)
+print(string.format("\tCurrent station config\n\tssid:\"%s\"\tpassword:\"%s\"\n\tbssid:\"%s\"\tbssid_set:%s", sta_config.ssid, sta_config.pwd, sta_config.bssid, (sta_config.bssid_set and "true" or "false")))
 end
 
 --Get current Station configuration (OLD FORMAT)
@@ -856,7 +911,8 @@ If `return_table` is `true`:
 - `config_table`
 	- `ssid` ssid of Access Point.
 	- `pwd` password to Access Point, `nil` if no password was configured
-	- `bssid` MAC address of Access Point, `nil` if no MAC address was configured
+	- `bssid_set` will return `true` if the station was configured specifically to connect to the AP with the matching `bssid`. 
+	- `bssid` If a connection has been made to the configured AP this field will contain the AP's MAC address. Otherwise "ff:ff:ff:ff:ff:ff" will be returned.
 
 If `return_table` is `false`:
 
@@ -867,8 +923,8 @@ If `return_table` is `false`:
 ```lua
 --Get default Station configuration (NEW FORMAT)
 do
-  local def_sta_config=wifi.sta.getdefaultconfig(true)
-  print(string.format("\tDefault station config\n\tssid:\"%s\"\tpassword:\"%s\"%s", def_sta_config.ssid, def_sta_config.pwd, (type(def_sta_config.bssid)=="string" and "\tbssid:\""..def_sta_config.bssid.."\"" or "")))
+local def_sta_config=wifi.sta.getdefaultconfig(true)
+print(string.format("\tDefault station config\n\tssid:\"%s\"\tpassword:\"%s\"\n\tbssid:\"%s\"\tbssid_set:%s", def_sta_config.ssid, def_sta_config.pwd, def_sta_config.bssid, (def_sta_config.bssid_set and "true" or "false")))
 end
 
 --Get default Station configuration (OLD FORMAT)
@@ -975,13 +1031,16 @@ Set Maximum number of Access Points to store in flash.
  - This value is written to flash
 
 !!! Attention
-		If 5 Access Points are stored and AP limit is set to 4, the AP at index 5 will remain until [`node.restore()`](node.md#noderestore) is called or AP limit is set to 5 and AP is overwritten.  
+	New setting will not take effect until restart. 
+
+!!! Note
+	If 5 Access Points are stored and AP limit is set to 4, the AP at index 5 will remain until [`node.restore()`](node.md#noderestore) is called or AP limit is set to 5 and AP is overwritten.
 
 #### Syntax
 `wifi.sta.setaplimit(qty)`
 
 #### Parameters
-`qty` Quantity of Access Points to store in flash. Range: 1-5 (Default: 5)
+`qty` Quantity of Access Points to store in flash. Range: 1-5 (Default: 1)
 
 #### Returns
 - `true`  Success
@@ -989,7 +1048,7 @@ Set Maximum number of Access Points to store in flash.
 
 #### Example
 ```lua
-wifi.sta.setaplimit(true)
+wifi.sta.setaplimit(5)
 ```
 
 #### See also
@@ -1006,7 +1065,9 @@ Sets station hostname.
 `hostname` must only contain letters, numbers and hyphens('-') and be 32 characters or less with first and last character being alphanumeric
 
 #### Returns
-`nil`
+- `true`  Success
+- `false` Failure
+
 
 #### Example
 ```lua
@@ -1121,7 +1182,20 @@ Sets SSID and password in AP mode. Be sure to make the password at least 8 chara
 	- `save` save configuration to flash.
 		- `true` configuration **will** be retained through power cycle. (Default)
 		- `false` configuration **will not** be retained through power cycle.
- 
+	- Event callbacks will only be available if `WIFI_SDK_EVENT_MONITOR_ENABLE` is uncommented in `user_config.h`
+		- Please note: To ensure all SoftAP events are handled at boot time, all relevant callbacks must be registered as early as possible in `init.lua` with either `wifi.ap.config()` or `wifi.eventmon.register()`.     
+ 		- `staconnected_cb`: Callback executed when a new client has connected to the access point. (Optional)
+			- Items returned in table :
+				- `MAC`: MAC address of client that has connected.  
+				- `AID`: SDK provides no details concerning this return value.  
+		- `stadisconnected_cb`: Callback executed when a client has disconnected from the access point. (Optional)  
+			- Items returned in table :
+				- `MAC`: MAC address of client that has disconnected.  
+				- `AID`: SDK provides no details concerning this return value.  
+		- `probereq_cb`: Callback executed when a probe request was received. (Optional)
+			- Items returned in table :
+				- `MAC`: MAC address of the client that is probing the access point.  
+				- `RSSI`: Received Signal Strength Indicator of client.  
 
 #### Returns
 - `true`  Success
@@ -1464,7 +1538,6 @@ none
 boolean indicating success
 
 # wifi.eventmon Module
-Note: The functions `wifi.sta.eventMon___()` and `wifi.eventmon.___()` are completely seperate and can be used independently of one another.
 
 ## wifi.eventmon.register()
 
@@ -1573,9 +1646,6 @@ T: Table returned by event.
 ```
 #### See also
 - [`wifi.eventmon.unregister()`](#wifieventmonunregister)
-- [`wifi.sta.eventMonStart()`](#wifistaeventmonstart)
-- [`wifi.sta.eventMonStop()`](#wifistaeventmonstop)
-- [`wifi.sta.eventMonReg()`](#wifistaeventmonreg)
 
 ## wifi.eventmon.unregister()
 
@@ -1608,8 +1678,6 @@ Event: WiFi event you would like to set a callback for.
 ```
 #### See also
 - [`wifi.eventmon.register()`](#wifieventmonregister)
-- [`wifi.sta.eventMonStart()`](#wifistaeventmonstart)
-- [`wifi.sta.eventMonStop()`](#wifistaeventmonstop)
 
 ## wifi.eventmon.reason
 
@@ -1645,3 +1713,4 @@ Table containing disconnect reasons.
 |wifi.eventmon.reason.AUTH_FAIL         |  202  |
 |wifi.eventmon.reason.ASSOC_FAIL        |  203  |
 |wifi.eventmon.reason.HANDSHAKE_TIMEOUT |  204  |
+

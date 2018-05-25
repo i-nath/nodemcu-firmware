@@ -128,9 +128,9 @@ static int tmr_delay( lua_State* L ){
 	sint32_t us = luaL_checkinteger(L, 1);
 	if(us <= 0)
 		return luaL_error(L, "wrong arg range");
-	while(us >= 10000){
-		us -= 10000;
-		os_delay_us(10000);
+	while(us >= 1000000){
+		us -= 1000000;
+		os_delay_us(1000000);
 		system_soft_wdt_feed ();
 	}
 	if(us>0){
@@ -428,7 +428,7 @@ static int tmr_create( lua_State *L ) {
 }
 
 
-#if defined(SWTMR_DEBUG)
+#if defined(ENABLE_TIMER_SUSPEND) && defined(SWTMR_DEBUG)
 static void tmr_printRegistry(lua_State* L){
   swtmr_print_registry();
 }
@@ -463,7 +463,7 @@ static const LUA_REG_TYPE tmr_dyn_map[] = {
 	{ LNILKEY, LNILVAL }
 };
 
-#if defined(SWTMR_DEBUG)
+#if defined(ENABLE_TIMER_SUSPEND) && defined(SWTMR_DEBUG)
 static const LUA_REG_TYPE tmr_dbg_map[] = {
     { LSTRKEY( "printRegistry" ),        LFUNCVAL( tmr_printRegistry ) },
     { LSTRKEY( "printSuspended" ),        LFUNCVAL( tmr_printSuspended ) },
@@ -492,7 +492,7 @@ static const LUA_REG_TYPE tmr_map[] = {
 	{ LSTRKEY( "state" ),        LFUNCVAL( tmr_state ) },
 	{ LSTRKEY( "interval" ),     LFUNCVAL( tmr_interval ) },
 	{ LSTRKEY( "create" ),       LFUNCVAL( tmr_create ) },
-#if defined(SWTMR_DEBUG)
+#if defined(ENABLE_TIMER_SUSPEND) && defined(SWTMR_DEBUG)
   { LSTRKEY( "debug" ),       LROVAL( tmr_dbg_map ) },
 #endif
 	{ LSTRKEY( "ALARM_SINGLE" ), LNUMVAL( TIMER_MODE_SINGLE ) },

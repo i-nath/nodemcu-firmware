@@ -22,8 +22,8 @@
 #define MQTT_MAX_CLIENT_LEN   64
 #define MQTT_MAX_USER_LEN     64
 #define MQTT_MAX_PASS_LEN     64
-#define MQTT_SEND_TIMEOUT			5
-#define MQTT_CONNECT_TIMEOUT  5
+#define MQTT_SEND_TIMEOUT			10
+#define MQTT_CONNECT_TIMEOUT  10
 
 typedef enum {
   MQTT_INIT,
